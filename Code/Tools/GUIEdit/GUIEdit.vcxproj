@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="Debug|Win32">
+    <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
-      <Platform>Win32</Platform>
+      <Platform>x64</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="Internal|Win32">
+    <ProjectConfiguration Include="Internal|x64">
       <Configuration>Internal</Configuration>
-      <Platform>Win32</Platform>
+      <Platform>x64</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|Win32">
+    <ProjectConfiguration Include="Release|x64">
       <Configuration>Release</Configuration>
-      <Platform>Win32</Platform>
+      <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -19,19 +19,19 @@
     <ProjectGuid>{B30A83C0-4CD7-4B00-911A-BAD8D924CC1F}</ProjectGuid>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Internal|Win32'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Internal|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <PlatformToolset>v143</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <PlatformToolset>v143</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <PlatformToolset>v143</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
@@ -40,15 +40,15 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Internal|Win32'" Label="PropertySheets">
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Internal|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC60.props" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC60.props" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC60.props" />
   </ImportGroup>
@@ -56,35 +56,28 @@
   <PropertyGroup>
     <_ProjectFileVersion>17.0.35707.178</_ProjectFileVersion>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>.\Debug\</OutDir>
-    <IntDir>.\Debug\</IntDir>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>.\Release\</OutDir>
-    <IntDir>.\Release\</IntDir>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Internal|Win32'">
-    <OutDir>.\Internal\</OutDir>
-    <IntDir>.\Internal\</IntDir>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Internal|x64'">
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Midl>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MkTypLibCompatible>true</MkTypLibCompatible>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <TargetEnvironment>Win32</TargetEnvironment>
       <TypeLibraryName>.\Debug/GUIEdit.tlb</TypeLibraryName>
-      <HeaderFileName />
+      <HeaderFileName>
+      </HeaderFileName>
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>.\Include;.\Resource;..\..\Libraries\Include;..\..\GameEngine\Include;..\..\GameEngineDevice\Include;..\..\Libraries\Source\WWVegas;..\..\Libraries\Source\WWVegas\WWLib;..\..\Libraries\Source\WWVegas\WWMath;..\..\Libraries\Source\WWVegas\WWDebug;..\..\Libraries\Source\WWVegas\WWSaveLoad;..\..\Libraries\Source\WWVegas\WW3D2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <PrecompiledHeaderOutputFile>.\Debug/GUIEdit.pch</PrecompiledHeaderOutputFile>
@@ -94,7 +87,7 @@
       <WarningLevel>Level3</WarningLevel>
       <TreatWarningAsError>true</TreatWarningAsError>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -112,22 +105,22 @@
       <MapFileName>..\..\..\Run\GUIEditD.map</MapFileName>
       <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
-      <DataExecutionPrevention />
-      <TargetMachine>MachineX86</TargetMachine>
+      <DataExecutionPrevention>
+      </DataExecutionPrevention>
     </Link>
     <Bscmake>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <OutputFile>.\Debug/GUIEdit.bsc</OutputFile>
     </Bscmake>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Midl>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MkTypLibCompatible>true</MkTypLibCompatible>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <TargetEnvironment>Win32</TargetEnvironment>
       <TypeLibraryName>.\Release/GUIEdit.tlb</TypeLibraryName>
-      <HeaderFileName />
+      <HeaderFileName>
+      </HeaderFileName>
     </Midl>
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
@@ -161,22 +154,22 @@
       <MapFileName>..\..\..\Run\GUIEdit.map</MapFileName>
       <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
-      <DataExecutionPrevention />
-      <TargetMachine>MachineX86</TargetMachine>
+      <DataExecutionPrevention>
+      </DataExecutionPrevention>
     </Link>
     <Bscmake>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <OutputFile>.\Release/GUIEdit.bsc</OutputFile>
     </Bscmake>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Internal|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Internal|x64'">
     <Midl>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MkTypLibCompatible>true</MkTypLibCompatible>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <TargetEnvironment>Win32</TargetEnvironment>
       <TypeLibraryName>.\Internal/GUIEdit.tlb</TypeLibraryName>
-      <HeaderFileName />
+      <HeaderFileName>
+      </HeaderFileName>
     </Midl>
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
@@ -210,8 +203,8 @@
       <MapFileName>..\..\..\Run\GUIEditI.map</MapFileName>
       <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
-      <DataExecutionPrevention />
-      <TargetMachine>MachineX86</TargetMachine>
+      <DataExecutionPrevention>
+      </DataExecutionPrevention>
     </Link>
     <Bscmake>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -267,9 +260,9 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource\GUIEdit.rc">
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Resource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Internal|Win32'">Resource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Resource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Resource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Internal|x64'">Resource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Resource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
@@ -281,6 +274,9 @@
       <Project>{54d11ea6-8cd0-42d9-9ed5-82bdc2f894a4}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
+    <ProjectReference Include="..\..\GameRenderer\GameRenderer.vcxproj">
+      <Project>{845363af-8d9b-464c-80fa-c2fef7a71c68}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\..\Libraries\Source\Compression\Compression.vcxproj">
       <Project>{72a36dc7-8fe2-439a-a503-f220901cc311}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
@@ -288,6 +284,9 @@
     <ProjectReference Include="..\..\Libraries\Source\WWVegas\WW3D2\ww3d2.vcxproj">
       <Project>{f7415afa-ee56-48f9-a42b-3101d93675f6}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Libraries\Source\WWVegas\WWDebug\wwdebug.vcxproj">
+      <Project>{4e83553c-d499-4d91-b744-5aac6986a33b}</Project>
     </ProjectReference>
     <ProjectReference Include="..\..\Libraries\Source\WWVegas\WWDownload\WWDownload.vcxproj">
       <Project>{46cf04d9-1c8e-4f31-af11-ae8dbe8a9004}</Project>
@@ -305,6 +304,30 @@
       <Project>{86908043-4887-4a76-8da4-3350e9932e32}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\brigades\Debug\usbrigades.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\Chat\Debug\uschat.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\common\Debug\uscommon.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\Direct2Game\Debug\usd2g.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\gcdkey\Debug\uscdkey.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\ghttp\Debug\ushttp.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\GP\Debug\usgp.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\gstats\Debug\usstats.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\gt2\Debug\usgt2.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\natneg\Debug\usnatneg.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\Peer\Debug\uspeer.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\pinger\Debug\uspinger.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\pt\Debug\uspt.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\qr2\Debug\usqr2.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\sake\Debug\ussake.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\sc\Debug\ussc.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\serverbrowsing\Debug\usserverbrowsing.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\sharedDll\Debug\UniSpySDK.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\Voice2\Debug\usvoice2.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\Voice2\libgsm\Debug\gsm.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\Voice2\libspeex\Debug\speex.lib" />
+    <Library Include="..\..\Libraries\Source\GameSpy\bin\webservices\Debug\uswebservice.lib" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

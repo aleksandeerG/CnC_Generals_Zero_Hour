@@ -46,7 +46,46 @@ OpenALAudioManager::OpenALAudioManager()
 // Destructor
 OpenALAudioManager::~OpenALAudioManager()
 {
-    // TODO: Clean up any allocated resources.
+	// This is a bad idea (destroying resources that is allocated externally) in a **destructor**,
+	// However currently there is no better way to do this since the game engine does not have clean up functionality.
+
+	// We can just call alcCloseDevice(device) and it will do everything
+	// but a common good practice we should cleanup what we requested to allocate.
+
+	// TODO in the logs OpenAL warns about non-deleted buffers, should be investigated more.
+
+	alSourceStop(m_musicSource);
+	alSourcei(m_musicSource, AL_BUFFER, AL_NONE);
+
+	alDeleteSources(1, &m_musicSource);
+
+	for (size_t i = 0; i < getNum2DSamples(); ++i)
+	{
+		// if source in use, stop it and unbind it's buffer
+		if (m_sourceInUse2D[i])
+		{
+			alSourceStop(m_sourcePool2D[i]);
+			alSourcei(m_sourcePool2D[i], AL_BUFFER, AL_NONE);
+		}
+	}
+	alDeleteSources(getNum2DSamples(), m_sourcePool2D);
+
+	for (size_t i = 0; i < getNum3DSamples(); ++i)
+	{
+		// if source in use, stop it and unbind it's buffer
+		if (m_sourceInUse3D[i])
+		{
+			alSourceStop(m_sourcePool3D[i]);
+			alSourcei(m_sourcePool3D[i], AL_BUFFER, AL_NONE);
+		}
+	}
+	alDeleteSources(getNum3DSamples(), m_sourcePool3D);
+
+	alDeleteBuffers(m_buffers.size(), m_buffers.data());
+
+	alcMakeContextCurrent(NULL);
+	alcDestroyContext(context);
+	alcCloseDevice(device);
 }
 
 #if defined(_DEBUG) || defined(_INTERNAL)
@@ -472,24 +511,6 @@ void OpenALAudioManager::friend_forcePlayAudioEventRTS(const AudioEventRTS* even
 	}
 }
 
-UnsignedInt OpenALAudioManager::getNum2DSamples(void) const
-{
-    // TODO: Return the number of 2D audio samples.
-    return 32;
-}
-
-UnsignedInt OpenALAudioManager::getNum3DSamples(void) const
-{
-    // TODO: Return the number of 3D audio samples.
-    return 32;
-}
-
-UnsignedInt OpenALAudioManager::getNumStreams(void) const
-{
-    // TODO: Return the number of audio streams.
-    return 32;
-}
-
 Bool OpenALAudioManager::doesViolateLimit(AudioEventRTS* event) const
 {
 	Int limit = event->getAudioEventInfo()->m_limit;
@@ -796,7 +817,14 @@ ALuint OpenALAudioManager::openFile(AudioEventRTS* eventToOpenFrom)
         return NULL;
     }
 
-    return OpenALAudioLoader::loadFromFile(strToFind.str());
+	ALuint buffer = OpenALAudioLoader::loadFromFile(strToFind.str());
+
+	const auto it = std::find(m_buffers.begin(), m_buffers.end(), buffer);
+	if (it != m_buffers.end())
+	{
+		m_buffers.push_back(buffer);
+	}
+	return buffer;
 }
 
 
@@ -1254,20 +1282,18 @@ void OpenALAudioManager::closeAnySamplesUsingFile(const void* fileToClose)
 void OpenALAudioManager::adjustPlayingVolume(OpenALPlayingAudio* audio)
 {
 	Real desiredVolume = audio->m_audioEventRTS->getVolume() * audio->m_audioEventRTS->getVolumeShift();
-	if (audio->m_type == PAT_Sample) {
-		alSourcef(audio->source, AL_GAIN, m_soundVolume * desiredVolume);
-	}
-	else if (audio->m_type == PAT_3DSample) {
-		alSourcef(audio->source, AL_GAIN, m_sound3DVolume * desiredVolume);
-	}
-	else if (audio->m_type == PAT_Stream) {
-		if (audio->m_audioEventRTS->getAudioEventInfo()->m_soundType == AT_Music) {
-			alSourcef(audio->source, AL_GAIN, m_sound3DVolume * m_musicVolume * desiredVolume);
-		}
-		else {
-			alSourcef(audio->source, AL_GAIN, m_sound3DVolume * m_speechVolume * desiredVolume);
-		}
-	}
+	AudioType at = audio->m_audioEventRTS->getAudioEventInfo()->m_soundType;
+	Bool isPositionalAudio = audio->m_audioEventRTS->isPositionalAudio();
+
+	if (isPositionalAudio)
+		desiredVolume *= m_sound3DVolume;
+	else if (at == AT_Music)
+		desiredVolume *= m_musicVolume;
+	else if (at == AT_Streaming)
+		desiredVolume *= m_speechVolume;
+	else // AT_SoundEffect and anything else
+		desiredVolume *= m_soundVolume;
+	alSourcef(audio->source, AL_GAIN, desiredVolume);
 }
 
 //-------------------------------------------------------------------------------------------------

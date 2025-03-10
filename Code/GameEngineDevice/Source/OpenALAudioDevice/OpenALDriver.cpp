@@ -26,10 +26,26 @@
 
 #include "OpenALAudioDevice/OpenALAudioLoader.h"
 
-#define NUM_POOLED_SOURCES 128
+//-----------------------------------------------------------------------------
 
-ALuint m_sourcePool[NUM_POOLED_SOURCES];
-bool m_sourceInUse[NUM_POOLED_SOURCES];
+UnsignedInt OpenALAudioManager::getNum2DSamples(void) const
+{
+	return NUM_POOLED_SOURCES2D;
+}
+
+//-----------------------------------------------------------------------------
+
+UnsignedInt OpenALAudioManager::getNum3DSamples(void) const
+{
+	return NUM_POOLED_SOURCES3D;
+}
+
+//-----------------------------------------------------------------------------
+
+UnsignedInt OpenALAudioManager::getNumStreams(void) const
+{
+	return NUM_POOLED_SOURCES3D;
+}
 
 //-----------------------------------------------------------------------------
 void OpenALAudioManager::openDevice(void)
@@ -54,44 +70,80 @@ void OpenALAudioManager::openDevice(void)
     alGenSources(1, &m_musicSource);  // This source is used ONLY for music
 
     // Create the pool of SFX sources
-    alGenSources(NUM_POOLED_SOURCES, m_sourcePool);
+    alGenSources(getNum2DSamples(), m_sourcePool2D);
+    alGenSources(getNum3DSamples(), m_sourcePool3D);
 
     // Mark them all as free initially
-    for (int i = 0; i < NUM_POOLED_SOURCES; ++i)
+    for (int i = 0; i < getNum3DSamples(); ++i)
     {
-        m_sourceInUse[i] = false;
+        m_sourceInUse3D[i] = false;
     }
+
+	for (int i = 0; i < getNum2DSamples(); ++i)
+	{
+		m_sourceInUse2D[i] = false;
+	}
 }
 
 //-----------------------------------------------------------------------------
 // Helper to get a free source from the pool
-ALuint OpenALAudioManager::getFreeSource(ALuint &poolIndex)
+ALuint OpenALAudioManager::getFreeSource(ALuint &poolIndex, bool is3D)
 {
-    for (int i = 0; i < NUM_POOLED_SOURCES; ++i)
+    if (is3D)
     {
-        if (!m_sourceInUse[i])
-        {
-            poolIndex = i;
-            m_sourceInUse[i] = true;
+		for (int i = 0; i < getNum3DSamples(); ++i)
+		{
+			if (!m_sourceInUse3D[i])
+			{
+				poolIndex = i;
+				m_sourceInUse3D[i] = true;
 
-            // Reset the source so it is ready for reuse
-            alSourceStop(m_sourcePool[i]);
-            alSourcei(m_sourcePool[i], AL_BUFFER, 0);
+				// Reset the source so it is ready for reuse
+				alSourceStop(m_sourcePool3D[i]);
+				alSourcei(m_sourcePool3D[i], AL_BUFFER, 0);
 
-            return m_sourcePool[i];
-        }
+				return m_sourcePool3D[i];
+			}
+		}
     }
+    else
+    {
+		for (int i = 0; i < getNum2DSamples(); ++i)
+		{
+			if (!m_sourceInUse2D[i])
+			{
+				poolIndex = i;
+				m_sourceInUse2D[i] = true;
+
+				// Reset the source so it is ready for reuse
+				alSourceStop(m_sourcePool2D[i]);
+				alSourcei(m_sourcePool2D[i], AL_BUFFER, 0);
+
+				return m_sourcePool2D[i];
+			}
+		}
+    }
+   
     // No free source available!
     return -1;
 }
 
 //-----------------------------------------------------------------------------
 // Helper to recycle a source back to the pool
-void OpenALAudioManager::recycleSource(ALuint poolIndex)
+void OpenALAudioManager::recycleSource(ALuint poolIndex, bool is3D)
 {
-    alSourceStop(m_sourcePool[poolIndex]);
-    alSourcei(m_sourcePool[poolIndex], AL_BUFFER, 0);
-    m_sourceInUse[poolIndex] = false;
+    if (is3D)
+    {
+		alSourceStop(m_sourcePool3D[poolIndex]);
+		alSourcei(m_sourcePool3D[poolIndex], AL_BUFFER, 0);
+		m_sourceInUse3D[poolIndex] = false;
+    }
+    else
+    {
+		alSourceStop(m_sourcePool2D[poolIndex]);
+		alSourcei(m_sourcePool2D[poolIndex], AL_BUFFER, 0);
+		m_sourceInUse2D[poolIndex] = false;
+    }
 }
 
 //-----------------------------------------------------------------------------
@@ -125,7 +177,12 @@ void OpenALAudioManager::releasePlayingAudio(OpenALPlayingAudio* release)
             else
             {
                 // SFX source => recycle it in the pool
-                recycleSource(release->poolIndex);
+                if (release->m_type == PAT_3DSample) {
+                    recycleSource(release->poolIndex, true);
+                }
+                else {
+                    recycleSource(release->poolIndex, false);
+                }
             }
         }
         // Buffers are typically managed externally or can remain cached
@@ -150,7 +207,8 @@ void OpenALAudioManager::closeDevice(void)
     if (device)
     {
         // Delete all SFX sources in the pool
-        alDeleteSources(NUM_POOLED_SOURCES, m_sourcePool);
+        alDeleteSources(getNum2DSamples(), m_sourcePool2D);
+        alDeleteSources(getNum3DSamples(), m_sourcePool3D);
 
         // Delete the dedicated music source
         if (m_musicSource)
@@ -177,7 +235,9 @@ void OpenALAudioManager::playSample(AudioEventRTS* event, OpenALPlayingAudio* au
 
     ALuint source = 0;
 
-    if (isMusic)
+    AudioType at = event->getAudioEventInfo()->m_soundType;
+
+    if (at == AT_Music)
     {
         // Always use the dedicated music source
         source = m_musicSource;
@@ -185,11 +245,11 @@ void OpenALAudioManager::playSample(AudioEventRTS* event, OpenALPlayingAudio* au
     else
     {
         // Get a source from the pool
-        source = getFreeSource(audio->poolIndex);
+        source = getFreeSource(audio->poolIndex, false);
         if (source == -1)
         {
             killLowestPrioritySoundImmediately(event);
-            source = getFreeSource(audio->poolIndex);
+            source = getFreeSource(audio->poolIndex, false);
 
             if (source == -1)
             {
@@ -197,16 +257,22 @@ void OpenALAudioManager::playSample(AudioEventRTS* event, OpenALPlayingAudio* au
             }
         }
     }
-
+    audio->m_type = PAT_Sample;
     audio->source = source;
     alSourcei(source, AL_BUFFER, buffer);
     alSourcei(source, AL_SOURCE_RELATIVE, AL_TRUE);
     alSource3f(source, AL_POSITION, 0.0f, 0.0f, 0.0f);
-    Real volume = event->getVolume();
+    Real volume = event->getVolume() * event->getVolumeShift();
+    if (at == AT_Music)
+        volume *= m_musicVolume;
+    else if (at == AT_Streaming)
+        volume *= m_speechVolume;
+    else // AT_SoundEffect and anything else
+        volume *= m_soundVolume;
     alSourcef(source, AL_GAIN, volume);
 
     // If this is music, you might want to loop it
-    if (isMusic)
+    if (at == AT_Music)
     {
         alSourcei(source, AL_LOOPING, AL_TRUE);
     }
@@ -228,11 +294,11 @@ bool OpenALAudioManager::playSample3D(AudioEventRTS* event, OpenALPlayingAudio* 
     audio->buffer = buffer;
 
     // Get a 3D source from the pool
-    ALuint source = getFreeSource(audio->poolIndex);
+    ALuint source = getFreeSource(audio->poolIndex, true);
     if (source == -1)
     {
         killLowestPrioritySoundImmediately(event);
-        source = getFreeSource(audio->poolIndex);
+        source = getFreeSource(audio->poolIndex, true);
 
         if (source == -1)
         {
@@ -240,12 +306,13 @@ bool OpenALAudioManager::playSample3D(AudioEventRTS* event, OpenALPlayingAudio* 
         }
     }
 
+    audio->m_type = PAT_3DSample;
     audio->source = source;
     alSourcei(source, AL_BUFFER, buffer);
 
     // Set 3D position and volume
     alSource3f(source, AL_POSITION, pos->x, pos->y, pos->z);
-    Real volume = event->getVolume();
+    Real volume = event->getVolume() * event->getVolumeShift() * m_sound3DVolume;
     alSourcei(source, AL_SOURCE_RELATIVE, AL_FALSE);
     alSourcef(source, AL_GAIN, volume);
     alSourcef(source, AL_REFERENCE_DISTANCE, event->getAudioEventInfo()->m_minDistance);
@@ -306,7 +373,7 @@ void OpenALAudioManager::setDeviceListenerPosition(void)
      // The first three elements are the "at" vector, the next three are the "up" vector.
     ALfloat listenerOri[6] = {
         m_listenerOrientation.x, m_listenerOrientation.y, m_listenerOrientation.z, // "at" vector
-        0.0f, 0.0f, -1.0f  // "up" vector (as in the original code)
+        0.0f, 0.0f, 1.0f  // "up" vector (as in the original code)
     };
     alListenerfv(AL_ORIENTATION, listenerOri);
 
@@ -322,7 +389,42 @@ void OpenALAudioManager::setDeviceListenerPosition(void)
 //-----------------------------------------------------------------------------
 void OpenALAudioManager::processFadingList(void)
 {
-    // Fading logic (unchanged)...
+    std::list<OpenALPlayingAudio*>::iterator it;
+    OpenALPlayingAudio* playing;
+
+    for (it = m_fadingAudio.begin(); it != m_fadingAudio.end(); /* emtpy */)
+    {
+        playing = *it;
+        if (!playing) {
+            continue;
+        }
+
+        if (playing->m_framesFaded >= getAudioSettings()->m_fadeAudioFrames)
+        {
+            playing->m_status = PS_Stopped;
+            playing->m_requestStop = true;
+            //m_stoppedAudio.push_back(playing);
+            releasePlayingAudio(playing);
+            it = m_fadingAudio.erase(it);
+            continue;
+        }
+
+        ++playing->m_framesFaded;
+
+        /*
+        * This is bad idea because volume settings would be applied twice.
+        * 3D volume math happens in openal anyway.
+        */
+        //Real volume = getEffectiveVolume(playing->m_audioEventRTS);
+
+        Real volume =  playing->m_audioEventRTS->getVolume() * playing->m_audioEventRTS->getVolumeShift();
+        volume *= (1.0f - 1.0f * playing->m_framesFaded / getAudioSettings()->m_fadeAudioFrames);
+
+        playing->m_audioEventRTS->setVolume(volume);
+        adjustPlayingVolume(playing);
+
+        ++it;
+    }
 }
 
 void OpenALAudioManager::stopAudio(AudioAffect which)
