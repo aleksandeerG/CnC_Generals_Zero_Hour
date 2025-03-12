@@ -59,6 +59,10 @@
 #include "dx8indexbuffer.h"
 #include "vertmaterial.h"
 
+#include "../dx12/tinydx.h"
+
+#include <vector>
+
 const unsigned MAX_TEXTURE_STAGES=2;
 
 enum {
@@ -142,6 +146,11 @@ public:
 	virtual void ReAcquireResources(void)=0;
 };
 
+struct DeviceVertexShader
+{
+	IDirect3DVertexShader9* shader;
+	IDirect3DVertexDeclaration9* decleration;
+};
 
 struct RenderStateStruct
 {
@@ -331,8 +340,7 @@ public:
 		TextureClass::MipCountType mip_level_count,
 		D3DPOOL pool=D3DPOOL_MANAGED,
 		bool rendertarget=false);
-	static IDirect3DTexture8 * _Create_DX8_Texture(const char *filename, TextureClass::MipCountType mip_level_count);
-	static IDirect3DTexture8 * _Create_DX8_Texture(IDirect3DSurface8 *surface, TextureClass::MipCountType mip_level_count);
+		static IDirect3DTexture8 * _Create_DX8_Texture(IDirect3DSurface8 *surface, TextureClass::MipCountType mip_level_count);
 
 	static IDirect3DSurface8 * _Create_DX8_Surface(unsigned int width, unsigned int height, WW3DFormat format);
 	static IDirect3DSurface8 * _Create_DX8_Surface(const char *filename);
@@ -445,6 +453,9 @@ public:
 	static HRESULT GetTransform(D3DTRANSFORMSTATETYPE State, D3DMATRIX* pMatrix) {
 		return D3DDevice->GetTransform(State, pMatrix);
 	}
+	static HRESULT SetVertexShaderConstantF(UINT StartRegister, CONST float* pConstantData, UINT Vector4fCount) {
+		return D3DDevice->SetVertexShaderConstantF(StartRegister, pConstantData, Vector4fCount);
+	}
 	static HRESULT SetStreamSource(UINT StreamNumber, IDirect3DVertexBuffer9* pStreamData, UINT OffsetInBytes, UINT Stride) {
 		return D3DDevice->SetStreamSource(StreamNumber, pStreamData, OffsetInBytes, Stride);
 	}
@@ -471,14 +482,6 @@ public:
 
 	static HRESULT GetRenderState(D3DRENDERSTATETYPE State, DWORD* pValue) {
 		return D3DDevice->GetRenderState(State, pValue);
-	}
-
-	static HRESULT SetPixelShader(IDirect3DPixelShader9* pShader) {
-		return D3DDevice->SetPixelShader(pShader);
-	}
-
-	static HRESULT SetVertexShader(IDirect3DVertexShader9* pShader) {
-		return D3DDevice->SetVertexShader(pShader);
 	}
 
 	static bool IsDeviceReady()
@@ -523,7 +526,52 @@ public:
 	static void SetCursorPosition(int X, int Y, DWORD Flags) {
 		D3DDevice->SetCursorPosition(X, Y, Flags);
 	}
+
+	static HRESULT CreatePixelShader(CONST DWORD* pFunction, IDirect3DPixelShader9** ppShader) {
+		return D3DDevice->CreatePixelShader(pFunction, ppShader);
+	}
+
+	static HRESULT CreateVertexShader(const D3DVERTEXELEMENT9* pDeclaration,const DWORD* pShaderCode,IDirect3DVertexShader9** ppShader,DWORD Usage) {
+		HRESULT hr = D3DDevice->CreateVertexDeclaration(pDeclaration, &deviceVertexShaders[numDeviceVertexShaders].decleration);
+		if (FAILED(hr))
+		{
+			return hr;
+		}
+
+		hr = D3DDevice->CreateVertexShader(pShaderCode, &deviceVertexShaders[numDeviceVertexShaders].shader);
+		if (FAILED(hr))
+		{
+			return hr;
+		}
+
+		*ppShader = (IDirect3DVertexShader9 *)&deviceVertexShaders[numDeviceVertexShaders];
+		numDeviceVertexShaders++;
+
+		return S_OK;
+	}
+
+	static HRESULT SetVertexShader(LPDIRECT3DVERTEXSHADER9 pShader) {
+		DeviceVertexShader* vertexShader = (DeviceVertexShader*)pShader;
+
+		if (vertexShader == nullptr)
+		{
+			D3DDevice->SetVertexShader(NULL);
+			D3DDevice->SetVertexDeclaration(NULL);
+			return S_OK;
+		}
+		HRESULT hr = D3DDevice->SetVertexShader(vertexShader->shader);
+		D3DDevice->SetVertexDeclaration(vertexShader->decleration);
+
+		return hr;
+	}
+
+	static HRESULT SetPixelShader(IDirect3DPixelShader9* pShader) {
+		return D3DDevice->SetPixelShader(pShader);
+	}
 protected:
+	static int numDeviceVertexShaders;
+	static DeviceVertexShader deviceVertexShaders[256];
+
 
 	static bool	Create_Device(void);
 	static void Release_Device(void);
@@ -629,9 +677,12 @@ protected:
 
 	static IDirect3D8 *					D3DInterface;			//d3d8;
 	static IDirect3DDevice8 *			D3DDevice;				//d3ddevice8;	
+	static tr_renderer					*D3D12Renderer;
 
 	static IDirect3DSurface8 *			CurrentRenderTarget;
 	static IDirect3DSurface8 *			DefaultRenderTarget;
+
+	static IDirect3DDevice9On12*		device9On12;
 
 	friend void DX8_Assert();
 	friend class WW3D;

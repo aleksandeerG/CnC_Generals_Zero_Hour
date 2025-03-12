@@ -75,6 +75,7 @@
 #include "dx8webbrowser.h"
 #include "DxErr.h"
 
+
 #define WW3D_DEVTYPE D3DDEVTYPE_HAL
 
 const int DEFAULT_RESOLUTION_WIDTH = 640;
@@ -109,6 +110,8 @@ D3DMATRIX						DX8Wrapper::old_world;
 D3DMATRIX						DX8Wrapper::old_view;
 D3DMATRIX						DX8Wrapper::old_prj;
 
+tr_renderer* DX8Wrapper::D3D12Renderer;
+
 bool								DX8Wrapper::world_identity;
 unsigned							DX8Wrapper::RenderStates[256];
 unsigned							DX8Wrapper::TextureStageStates[MAX_TEXTURE_STAGES][32];
@@ -123,6 +126,10 @@ IDirect3D8 *					DX8Wrapper::D3DInterface								= NULL;
 IDirect3DDevice8 *			DX8Wrapper::D3DDevice									= NULL;
 IDirect3DSurface8 *			DX8Wrapper::CurrentRenderTarget						= NULL;
 IDirect3DSurface8 *			DX8Wrapper::DefaultRenderTarget						= NULL;
+IDirect3DDevice9On12*		DX8Wrapper::device9On12 = NULL;
+
+int DX8Wrapper::numDeviceVertexShaders = 0;
+DeviceVertexShader DX8Wrapper::deviceVertexShaders[256];
 
 unsigned							DX8Wrapper::matrix_changes								= 0;
 unsigned							DX8Wrapper::material_changes							= 0;
@@ -171,6 +178,36 @@ DX8_CleanupHook	 *DX8Wrapper::m_pCleanupHook=NULL;
 #ifdef EXTENDED_STATS
 DX8_Stats	 DX8Wrapper::stats;
 #endif
+
+HMODULE GetD3D9Module() {
+	static HMODULE hModule = []() -> HMODULE {
+		constexpr UINT MaxPath = 4096;
+
+		wchar_t dllPath[MaxPath];
+
+		GetSystemDirectoryW(dllPath, MaxPath);
+		wcscat_s(dllPath, L"\\d3d9.dll");
+
+		return LoadLibraryW(dllPath);
+		}();
+
+	return hModule;
+}
+
+template <typename ProcType, typename... Args>
+auto RunD3D9Proc(const char* procName, Args... args) {
+	static auto proc = reinterpret_cast<ProcType*>(
+		GetProcAddress(GetD3D9Module(), procName));
+
+	return proc(args...);
+}
+
+extern "C" {
+	IDirect3D9* WINAPI Direct3DCreate9On12(UINT SDKVersion, D3D9ON12_ARGS* pOverrideList, UINT NumOverrideEntries) {
+		return RunD3D9Proc<decltype(Direct3DCreate9On12)>("Direct3DCreate9On12", SDKVersion, pOverrideList, NumOverrideEntries);
+	}
+};
+
 /***********************************************************************************
 **
 ** DX8Wrapper Implementation
@@ -188,7 +225,6 @@ void Non_Fatal_Log_DX8_ErrorCode(unsigned res,const char * file,int line)
 	WWDEBUG_SAY(("DX8 Error: %s, File: %s, Line: %d\n",
 		DXGetErrorStringA(res),file,line));
 }
-
 
 bool DX8Wrapper::Init(void * hwnd)
 {
@@ -231,9 +267,21 @@ bool DX8Wrapper::Init(void * hwnd)
 	/*
 	** Create the D3D interface object
 	*/
-	D3DInterface = Direct3DCreate8(D3D_SDK_VERSION);		// TODO: handle failure cases...
-	if (!D3DInterface)
-		return false;
+
+// jmarshall - d3d9on12
+	tr_renderer_settings settings = {};
+	tr_create_renderer("Command and Conquer Generals", &settings, &D3D12Renderer);
+
+	LUID adapter_LUID = D3D12Renderer->dx_device->GetAdapterLuid();
+	D3D9ON12_ARGS d3d9On12Args = {};
+	d3d9On12Args.Enable9On12 = TRUE;
+	d3d9On12Args.pD3D12Device = D3D12Renderer->dx_device;
+	d3d9On12Args.ppD3D12Queues[0] = D3D12Renderer->graphics_queue->dx_queue; // pointer to our queue
+	d3d9On12Args.NumQueues = 1;
+	d3d9On12Args.NodeMask = 0; // Single-GPU scenario
+	D3DInterface = Direct3DCreate9On12(D3D_SDK_VERSION, &d3d9On12Args, 1);
+// jmarshall end
+	
 	IsInitted = true;	
 	
 	/*
@@ -398,7 +446,7 @@ void DX8Wrapper::Do_Onetime_Device_Dependent_Shutdowns(void)
 bool DX8Wrapper::Create_Device(void)
 {
 	WWASSERT(D3DDevice == NULL);	// for now, once you've created a device, you're stuck with it!
-
+#
 	D3DCAPS8 caps;
 	if (FAILED( D3DInterface->GetDeviceCaps(
 		CurRenderDevice,
@@ -427,17 +475,20 @@ bool DX8Wrapper::Create_Device(void)
 	if (DX8Wrapper_PreserveFPU)
 		vertex_processing_type |= D3DCREATE_FPU_PRESERVE;
 
-	if (FAILED( D3DInterface->CreateDevice(
+	HRESULT hr = D3DInterface->CreateDevice(
 		CurRenderDevice,
 		WW3D_DEVTYPE,
 		_Hwnd,
 		vertex_processing_type,
 		&_PresentParameters,
-		&D3DDevice ) ) )
+		&D3DDevice);
+		
+	if(FAILED(hr))
 	{ 
 		return false;
 	}
 
+	D3DDevice->QueryInterface(IID_PPV_ARGS(&device9On12));
 	D3DDevice->SetRenderState(D3DRS_POINTSIZE_MIN, (DWORD)0.0f);
 
 	/*
@@ -560,11 +611,36 @@ void DX8Wrapper::Enumerate_Devices()
 			** Enumerate the resolutions
 			*/
 			desc.reset_resolution_list();
-			int mode_count = D3DInterface->GetAdapterModeCount(adapter_index,D3DFMT_A8R8G8B8);
+
+			// List of acceptable video mode formats in order
+			// D3DFMT_A8R8G8B8 and D3DFMT_R8G8B8 should not be on the list but left for compatibility
+			// https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dformat#backbuffer-or-display-formats
+			const D3DFORMAT SUPPORTED_FORMATS [] = {
+				// 32 bits formats
+				D3DFMT_A8R8G8B8, // old default
+				D3DFMT_X8R8G8B8,
+				// 24 bits formats
+				D3DFMT_R8G8B8,
+				// 16 bits formats
+				D3DFMT_R5G6B5,
+				D3DFMT_X1R5G5B5
+			};
+
+			D3DFORMAT d3dformat = D3DFMT_UNKNOWN;
+			int mode_count = 0;
+
+			for (const D3DFORMAT format : SUPPORTED_FORMATS) {
+				mode_count = D3DInterface->GetAdapterModeCount(adapter_index, format);
+				if (mode_count > 0) {
+					d3dformat = format;
+					break;
+				}
+			}
+
 			for (int mode_index=0; mode_index<mode_count; mode_index++) {
 				D3DDISPLAYMODE d3dmode;
 				::ZeroMemory(&d3dmode, sizeof(D3DDISPLAYMODE));
-				HRESULT res = D3DInterface->EnumAdapterModes(adapter_index,D3DFMT_A8R8G8B8,mode_index,&d3dmode);
+				HRESULT res = D3DInterface->EnumAdapterModes(adapter_index,d3dformat,mode_index,&d3dmode);
 				
 				if (res == D3D_OK) {
 					int bits = 0;
@@ -1271,50 +1347,8 @@ bool DX8Wrapper::Find_Color_Mode(D3DFORMAT colorbuffer, int resx, int resy, UINT
 bool DX8Wrapper::Find_Z_Mode(D3DFORMAT colorbuffer,D3DFORMAT backbuffer, D3DFORMAT *zmode)
 {
 	//MW: Swapped the next 2 tests so that Stencil modes get tested first.
-	if (Test_Z_Mode(colorbuffer,backbuffer,D3DFMT_D24S8))
-	{
-		*zmode=D3DFMT_D24S8;
-		WWDEBUG_SAY(("Found zbuffer mode D3DFMT_D24S8\n"));
-		return true;
-	}
-
-	if (Test_Z_Mode(colorbuffer,backbuffer,D3DFMT_D32))
-	{
-		*zmode=D3DFMT_D32;
-		WWDEBUG_SAY(("Found zbuffer mode D3DFMT_D32\n"));
-		return true;
-	}
-
-	if (Test_Z_Mode(colorbuffer,backbuffer,D3DFMT_D24X8))
-	{
-		*zmode=D3DFMT_D24X8;
-		WWDEBUG_SAY(("Found zbuffer mode D3DFMT_D24X8\n"));
-		return true;
-	}
-
-	if (Test_Z_Mode(colorbuffer,backbuffer,D3DFMT_D24X4S4))
-	{
-		*zmode=D3DFMT_D24X4S4;
-		WWDEBUG_SAY(("Found zbuffer mode D3DFMT_D24X4S4\n"));
-		return true;
-	}
-
-	if (Test_Z_Mode(colorbuffer,backbuffer,D3DFMT_D16))
-	{
-		*zmode=D3DFMT_D16;
-		WWDEBUG_SAY(("Found zbuffer mode D3DFMT_D16\n"));
-		return true;
-	}
-
-	if (Test_Z_Mode(colorbuffer,backbuffer,D3DFMT_D15S1))
-	{
-		*zmode=D3DFMT_D15S1;
-		WWDEBUG_SAY(("Found zbuffer mode D3DFMT_D15S1\n"));
-		return true;
-	}
-	
-	// can't find a match
-	return false;
+	*zmode = D3DFMT_D24S8;
+	return true; 
 }
 
 bool DX8Wrapper::Test_Z_Mode(D3DFORMAT colorbuffer,D3DFORMAT backbuffer, D3DFORMAT zmode)
@@ -1842,6 +1876,26 @@ void DX8Wrapper::Draw_Strip(
 
 void DX8Wrapper::Apply_Render_State_Changes()
 {
+	{
+		// 1. Retrieve the fixed-function pipeline matrices from the device
+		D3DXMATRIX matWorld, matView, matProj;
+		DX8Wrapper::GetTransform(D3DTS_WORLD, &matWorld);
+		DX8Wrapper::GetTransform(D3DTS_VIEW, &matView);
+		DX8Wrapper::GetTransform(D3DTS_PROJECTION, &matProj);
+
+		// 2. Combine into one WVP matrix
+		// This is the same order that the fixed-function pipeline applies them.
+		D3DXMATRIX matWVP = matWorld * matView * matProj;
+
+		// 3. If your shader does: pos = mul(inputPos, gTransform);
+		//    then it's expecting a row-major matrix. The D3D9 pipeline 
+		//    typically returns them in a column-major sense. So transpose:
+		D3DXMATRIX matWVP_Transposed;
+		D3DXMatrixTranspose(&matWVP_Transposed, &matWVP);
+
+		DX8Wrapper::SetVertexShaderConstantF(0, (float*)&matWVP_Transposed, 4);
+	}
+
 	if (!render_state_changed) return;
 	if (render_state_changed&SHADER_CHANGED) {
 		SNAPSHOT_SAY(("DX8 - apply shader\n"));
@@ -2010,56 +2064,6 @@ IDirect3DTexture8 * DX8Wrapper::_Create_DX8_Texture(
 }
 
 IDirect3DTexture8 * DX8Wrapper::_Create_DX8_Texture(
-	const char *filename, 
-	TextureClass::MipCountType mip_level_count)
-{
-	DX8_THREAD_ASSERT();
-	DX8_Assert();
-	IDirect3DTexture8 *texture = NULL;
-
-	// NOTE: If the original image format is not supported as a texture format, it will
-	// automatically be converted to an appropriate format.
-	// NOTE: It is possible to get the size and format of the original image file from this
-	// function as well, so if we later want to second-guess D3DX's format conversion decisions
-	// we can do so after this function is called..
-	unsigned result = D3DXCreateTextureFromFileExA(
-		DX8Wrapper::D3DDevice, 
-		filename,
-		D3DX_DEFAULT, 
-		D3DX_DEFAULT, 
-		mip_level_count,//create_mipmaps ? 0 : 1, 
-		0, 
-		D3DFMT_UNKNOWN, 
-		D3DPOOL_MANAGED,
-		D3DX_FILTER_BOX, 
-		D3DX_FILTER_BOX, 
-		0, 
-		NULL, 
-		NULL, 
-		&texture);
-	
-	if (result != D3D_OK) {
-		return MissingTexture::_Get_Missing_Texture();
-	}
-
-	// Make sure texture wasn't paletted!
-	D3DSURFACE_DESC desc;
-	texture->GetLevelDesc(0,&desc);
-	if (desc.Format==D3DFMT_P8) {
-		texture->Release();
-		return MissingTexture::_Get_Missing_Texture();
-	}
-	else {
-//		unsigned reduction=WW3D::Get_Texture_Reduction();
-//		unsigned level_count=texture->GetLevelCount();
-//		if (reduction>=level_count) reduction=level_count-1;
-//		texture->SetLOD(reduction);
-	}
-
-	return texture;
-}
-
-IDirect3DTexture8 * DX8Wrapper::_Create_DX8_Texture(
 	IDirect3DSurface8 *surface,
 	TextureClass::MipCountType mip_level_count)
 {
@@ -2101,7 +2105,7 @@ IDirect3DSurface8 * DX8Wrapper::_Create_DX8_Surface(unsigned int width, unsigned
 	// Paletted surfaces not supported!
 	WWASSERT(format!=D3DFMT_P8);
 
-	DX8CALL(CreateOffscreenPlainSurface(width, height, WW3DFormat_To_D3DFormat(format), D3DPOOL_SYSTEMMEM, &surface, NULL));
+	DX8CALL(CreateOffscreenPlainSurface(width, height, WW3DFormat_To_D3DFormat(format), D3DPOOL_SCRATCH, &surface, NULL));
 
 	return surface;
 }
